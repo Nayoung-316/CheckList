@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>미션 수행 현황</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      background: #f5f7fb;
+      margin: 0;
+      padding: 24px;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .month-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chip {
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      padding: 8px 14px;
+      background: #fff;
+      font-size: 13px;
+      cursor: default;
+    }
+    .btn {
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      background: #fff;
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn:active {
+      transform: translateY(1px);
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid #e3e6f0;
+      background: #fafbff;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 900px;
+      background: #fff;
+    }
+    thead {
+      background: #f2f4fc;
+    }
+    th, td {
+      border-bottom: 1px solid #edf0f6;
+      padding: 8px 6px;
+      text-align: center;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    th.sticky-left, td.sticky-left {
+      position: sticky;
+      left: 0;
+      background: #fff;
+      z-index: 3;
+    }
+    th.sticky-left {
+      background: #f2f4fc;
+      z-index: 4;
+    }
+    th.name-col, td.name-col {
+      min-width: 120px;
+      text-align: left;
+      padding-left: 12px;
+    }
+    th.mission-col, td.mission-col {
+      min-width: 90px;
+      text-align: left;
+      padding-left: 12px;
+    }
+    th.percent-col, td.percent-col {
+      min-width: 60px;
+    }
+    tr:nth-child(2n+1) td {
+      background: #fcfdff;
+    }
+    input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .completion-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 40px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4a5cff;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .footer-info {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #888;
+    }
+    .footer-info strong {
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>미션 수행 현황</h1>
+  <div class="subtitle">팀원들의 미션 완료 여부를 확인하고 관리하세요.</div>
+
+  <div class="top-bar">
+    <div class="month-group">
+      <button class="btn" disabled>◀</button>
+      <div class="chip" id="month-label"></div>
+      <button class="btn" disabled>▶</button>
+      <button class="btn">이번 달로 이동</button>
+    </div>
+    <button class="btn">초기화 (이 브라우저만)</button>
+  </div>
+
+  <div class="table-wrapper">
+    <table id="mission-table">
+      <thead>
+      <tr>
+        <th class="sticky-left name-col">이름</th>
+        <th class="sticky-left mission-col">미션</th>
+        <!-- 날짜 헤더는 JS에서 채움 -->
+        <th class="percent-col">달성률</th>
+      </tr>
+      </thead>
+      <tbody>
+      <!-- JS에서 자동 생성 -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer-info">
+    ✅ 체크 현황은 <strong>각 사용자의 브라우저(localStorage)</strong>에만 저장됩니다.<br/>
+    여러 사람이 같은 컴퓨터를 쓰면 기록이 섞일 수 있어요.
+  </div>
+</div>
+
+<script>
+  // ===== 설정 부분 =====
+  // 여기에 스터디원과 미션을 원하는 대로 적으면 됨
+  const people = [
+    { name: "김나영", missions: ["학습 기록", "시간 인증"] },
+    { name: "권혜진", missions: ["학습 기록", "시간 인증"] },
+    { name: "윤선혜", missions: ["학습 기록", "시간 인증"] },
+  ];
+
+  const DAYS_IN_MONTH = 31; // 필요한 만큼 조절 (예: 30일, 31일 등)
+  const STORAGE_KEY = "mission-checks-v1";
+
+  // ===== 헬퍼 함수 =====
+  function getStoredState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error(e);
+      return {};
+    }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function updateRowCompletion(tr) {
+    const checkboxes = tr.querySelectorAll('input[type="checkbox"]');
+    let checked = 0;
+    checkboxes.forEach(cb => { if (cb.checked) checked++; });
+    const percent = checkboxes.length ? Math.round(checked / checkboxes.length * 100) : 0;
+    const badge = tr.querySelector(".completion-badge");
+    badge.textContent = percent + "%";
+  }
+
+  // ===== 테이블 생성 =====
+  const table = document.getElementById("mission-table");
+  const theadRow = table.querySelector("thead tr");
+  const tbody = table.querySelector("tbody");
+
+  // 날짜 헤더 채우기
+  for (let d = 1; d <= DAYS_IN_MONTH; d++) {
+    const th = document.createElement("th");
+    th.textContent = d + "일";
+    theadRow.insertBefore(th, theadRow.lastElementChild); // 달성률 앞에 삽입
+  }
+
+  const state = getStoredState();
+
+  people.forEach(person => {
+    person.missions.forEach(mission => {
+      const tr = document.createElement("tr");
+      const rowKey = person.name + " / " + mission;
+      tr.dataset.rowKey = rowKey;
+
+      // 이름 셀
+      const nameTd = document.createElement("td");
+      nameTd.className = "sticky-left name-col";
+      nameTd.textContent = person.name;
+      tr.appendChild(nameTd);
+
+      // 미션 셀
+      const missionTd = document.createElement("td");
+      missionTd.className = "sticky-left mission-col";
+      missionTd.textContent = mission;
+      tr.appendChild(missionTd);
+
+      // 날짜별 체크박스
+      for (let d = 1; d <= DAYS_IN_MONTH; d++) {
+        const td = document.createElement("td");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        const cellId = `${person.name}__${mission}__${d}`;
+        cb.dataset.cellId = cellId;
+
+        // 저장값 불러와서 체크
+        if (state[cellId]) cb.checked = true;
+
+        cb.addEventListener("change", () => {
+          const currentState = getStoredState();
+          currentState[cellId] = cb.checked;
+          saveState(currentState);
+          updateRowCompletion(tr);
+        });
+
+        td.appendChild(cb);
+        tr.appendChild(td);
+      }
+
+      // 달성률 셀
+      const percentTd = document.createElement("td");
+      percentTd.className = "percent-col";
+      const badge = document.createElement("span");
+      badge.className = "completion-badge";
+      badge.textContent = "0%";
+      percentTd.appendChild(badge);
+      tr.appendChild(percentTd);
+
+      tbody.appendChild(tr);
+
+      // 처음 로딩 시 달성률 계산
+      updateRowCompletion(tr);
+    });
+  });
+
+  // 상단 월 표시 (현재 달)
+  const monthLabel = document.getElementById("month-label");
+  const now = new Date();
+  monthLabel.textContent = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
+
+  // 초기화 버튼
+  const resetBtn = document.querySelectorAll(".btn")[3]; // "초기화 (이 브라우저만)" 버튼
+  resetBtn.addEventListener("click", () => {
+    if (!confirm("이 브라우저의 모든 체크 기록을 지울까요?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    // 체크박스 다 해제
+    document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    // 달성률 다시 계산
+    document.querySelectorAll("tbody tr").forEach(tr => updateRowCompletion(tr));
+  });
+</script>
+</body>
+</html>
